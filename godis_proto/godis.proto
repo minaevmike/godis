@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package godis_proto;
+
+message Error {
+    string message = 1;
+}
+
+enum Operation {
+    Remove = 0;
+    Get = 1;
+    Set = 2;
+    Keys = 3;
+}
+
+message Response {
+    Error error = 1;
+    Value value = 2;
+}
+
+message Request {
+    string key = 1;
+    Operation operation = 2;
+}
+
+message Value {
+    oneof value {
+        string string_val = 1;
+        RepeatedString string_slice = 2;
+        MapString string_map = 3;
+    }
+}
+
+message RepeatedString {
+    repeated string string_array_val = 2;
+}
+
+message MapString {
+    map<string, string> string_map = 1;
+}
