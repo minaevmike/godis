@@ -3,7 +3,10 @@ package main
 import (
 	"log"
 
+	"fmt"
+
 	"github.com/minaevmike/godis/client"
+	"github.com/minaevmike/godis/godis_proto"
 )
 
 func main() {
@@ -11,7 +14,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for i := 0; i < 30; i++ {
-		log.Print(cl.Get("abc"))
+	err = cl.Set("abc", &godis_proto.Value{Value: &godis_proto.Value_StringVal{StringVal: "abc213"}})
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	fmt.Println(cl.Get("abc"))
 }

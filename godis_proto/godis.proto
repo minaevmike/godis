@@ -21,6 +21,8 @@ message Response {
 message Request {
     string key = 1;
     Operation operation = 2;
+    // usefull only on set
+    Value value = 3;
 }
 
 message Value {

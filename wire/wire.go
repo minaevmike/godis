@@ -6,22 +6,23 @@ import (
 	"io"
 	"net"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/minaevmike/godis/codec"
 )
 
 type Protocol interface {
-	Read(conn net.Conn, dst proto.Message) error
-	Write(conn net.Conn, src proto.Message) error
+	Read(conn net.Conn, dst interface{}) error
+	Write(conn net.Conn, src interface{}) error
 }
 
-func NewSimpleWireProtocol() Protocol {
-	return &simpleProtocol{}
+func NewSimpleWireProtocol(codec codec.Codec) Protocol {
+	return &simpleProtocol{codec: codec}
 }
 
 type simpleProtocol struct {
+	codec codec.Codec
 }
 
-func (s *simpleProtocol) Read(conn net.Conn, dst proto.Message) error {
+func (s *simpleProtocol) Read(conn net.Conn, dst interface{}) error {
 	var length uint32
 	err := binary.Read(conn, binary.BigEndian, &length)
 	if err != nil {
@@ -34,10 +35,10 @@ func (s *simpleProtocol) Read(conn net.Conn, dst proto.Message) error {
 		return err
 	}
 
-	return proto.Unmarshal(message, dst)
+	return s.codec.Unmarshal(message, dst)
 }
-func (s *simpleProtocol) Write(conn net.Conn, src proto.Message) error {
-	message, err := proto.Marshal(src)
+func (s *simpleProtocol) Write(conn net.Conn, src interface{}) error {
+	message, err := s.codec.Marshal(src)
 	if err != nil {
 		return err
 	}
