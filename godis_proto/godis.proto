@@ -14,8 +14,12 @@ enum Operation {
 }
 
 message Response {
-    Error error = 1;
-    Value value = 2;
+    // keys would be returned in `Keys` request otherwise value will be in result
+    oneof response_value {
+        Error error = 1;
+        Value value = 2;
+        RepeatedString keys = 3;
+    }
 }
 
 message Request {

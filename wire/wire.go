@@ -8,7 +8,12 @@ import (
 
 	"github.com/minaevmike/godis/codec"
 )
-
+// wire protocol is very simple:
+// 1. client serialize request into bytes
+// 2. client writes request size in big-endian byte order to server
+// 3. client writes message
+// 4. server makes same
+// 5. client reads size of message and then message itself
 type Protocol interface {
 	Read(conn net.Conn, dst interface{}) error
 	Write(conn net.Conn, src interface{}) error

@@ -9,6 +9,7 @@ import (
 	"github.com/minaevmike/godis/storage"
 	"github.com/minaevmike/godis/wire"
 	"go.uber.org/zap"
+	"regexp"
 )
 
 func NewServer(
@@ -77,24 +78,60 @@ func (s *Server) handleConnection(conn net.Conn) {
 			}
 			return
 		}
+
 		switch req.Operation {
 		case godis_proto.Operation_Get:
 			v, err := s.storage.Get(req.GetKey())
 			if err != nil {
-				s.wireProtocol.Write(conn, &godis_proto.Response{Error: &godis_proto.Error{Message: err.Error()}})
+				s.wireProtocol.Write(conn, getErrorResponse(err.Error()))
 				continue
 			}
-			s.wireProtocol.Write(conn, &godis_proto.Response{Value: v})
+			s.wireProtocol.Write(conn, &godis_proto.Response{ResponseValue: &godis_proto.Response_Value{
+				Value: v,
+			}})
+
 		case godis_proto.Operation_Set:
 			err := s.storage.Set(req.GetKey(), req.GetValue())
 			if err != nil {
-				s.wireProtocol.Write(conn, &godis_proto.Response{Error: &godis_proto.Error{Message: err.Error()}})
+				s.wireProtocol.Write(conn, getErrorResponse(err.Error()))
 				continue
 			}
 			s.wireProtocol.Write(conn, &godis_proto.Response{})
+
+		case godis_proto.Operation_Remove:
+			err := s.storage.Delete(req.GetKey())
+			if err != nil {
+				s.wireProtocol.Write(conn, getErrorResponse(err.Error()))
+				continue
+			}
+			s.wireProtocol.Write(conn, &godis_proto.Response{})
+
+		case godis_proto.Operation_Keys:
+			keyReg, err := regexp.Compile(req.GetKey())
+			if err != nil {
+				s.wireProtocol.Write(conn, getErrorResponse(err.Error()))
+				continue
+			}
+
+			result := &syncStringSlice{}
+
+			s.storage.ForEach(func(key string, _ *godis_proto.Value) {
+				if keyReg.MatchString(key) {
+					result.add(key)
+				}
+			})
+
 		default:
-			s.wireProtocol.Write(conn, &godis_proto.Response{Error: &godis_proto.Error{Message: "not implemented"}})
+			s.wireProtocol.Write(conn, getErrorResponse("not implemented"))
 		}
 
+	}
+}
+
+func getErrorResponse(err string) *godis_proto.Response {
+	return &godis_proto.Response{
+		ResponseValue: &godis_proto.Response_Error{
+			Error: &godis_proto.Error{Message: err},
+		},
 	}
 }
