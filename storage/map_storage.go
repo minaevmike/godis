@@ -5,10 +5,12 @@ import (
 	"sync"
 
 	"github.com/minaevmike/godis/godis_proto"
+	"time"
 )
 
 var (
 	ErrKeyDoesntExists = errors.New("key doesn't exists")
+	ErrKeyExpired      = errors.New("key ttl expired")
 )
 
 func NewMapStorage() Storage {
@@ -29,6 +31,11 @@ func (ms *mapStorage) Get(key string) (*godis_proto.Value, error) {
 	if !ok {
 		return nil, ErrKeyDoesntExists
 	}
+	if time.Now().UnixNano() > v.Ttl {
+		//key expired
+		ms.Delete(key)
+		return nil, ErrKeyExpired
+	}
 	return v, nil
 }
 
@@ -48,8 +55,27 @@ func (ms *mapStorage) Delete(key string) error {
 
 func (ms *mapStorage) ForEach(fn ForEachFunc) {
 	ms.mu.RLock()
+	now := time.Now().UnixNano()
+	var keysToDelete []string
 	for k, v := range ms.m {
-		fn(k, v)
+		if now > v.Ttl {
+			// we need to delete this key
+			// but to delete we need exclusive lock
+			keysToDelete = append(keysToDelete, k)
+		} else {
+			fn(k, v)
+		}
 	}
 	ms.mu.RUnlock()
+
+	if len(keysToDelete) > 0 {
+		go func() {
+			ms.mu.Lock()
+			for _, key := range keysToDelete {
+				delete(ms.m, key)
+			}
+			ms.mu.Unlock()
+		}()
+	}
+
 }

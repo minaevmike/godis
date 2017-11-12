@@ -11,6 +11,8 @@ enum Operation {
     Get = 1;
     Set = 2;
     Keys = 3;
+    GetByIndex = 4;
+    GetByKey = 5;
 }
 
 message Response {
@@ -25,8 +27,12 @@ message Response {
 message Request {
     string key = 1;
     Operation operation = 2;
-    // usefull only on set
+    // value usefull only on set
     Value value = 3;
+    // index usefull only on get by index
+    uint32 index = 4;
+    // map_key usefull only on get by key
+    string map_key = 5;
 }
 
 message Value {
@@ -35,6 +41,8 @@ message Value {
         RepeatedString string_slice = 2;
         MapString string_map = 3;
     }
+    // unix nanoseconds until this value is valid
+    int64 ttl = 4;
 }
 
 message RepeatedString {

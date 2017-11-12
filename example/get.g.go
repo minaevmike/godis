@@ -5,7 +5,6 @@ import (
 
 	"fmt"
 
-	"io/ioutil"
 	"sync"
 
 	"github.com/minaevmike/godis/client"
@@ -30,6 +29,5 @@ func main() {
 			fmt.Println(cl.Get("abc"))
 		}()
 	}
-	ioutil.NopCloser()
 	wg.Wait()
 }

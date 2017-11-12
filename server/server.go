@@ -10,6 +10,7 @@ import (
 	"github.com/minaevmike/godis/wire"
 	"go.uber.org/zap"
 	"regexp"
+	"fmt"
 )
 
 func NewServer(
@@ -56,10 +57,10 @@ func (s *Server) Run(addr string) error {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			s.log.Error("error accepting", zap.Error(err))
 			if errorPermament(err) {
 				return err
 			}
+			s.log.Error("error accepting", zap.Error(err))
 			continue
 		}
 
@@ -120,6 +121,70 @@ func (s *Server) handleConnection(conn net.Conn) {
 					result.add(key)
 				}
 			})
+
+			s.wireProtocol.Write(conn, &godis_proto.Response{
+				ResponseValue: &godis_proto.Response_Value{
+					Value: &godis_proto.Value{
+						Value: &godis_proto.Value_StringSlice{
+							StringSlice: &godis_proto.RepeatedString{
+								StringArrayVal: result.data,
+							},
+						},
+					},
+				},
+			})
+
+		case godis_proto.Operation_GetByIndex:
+			v, err := s.storage.Get(req.GetKey())
+			if err != nil {
+				s.wireProtocol.Write(conn, getErrorResponse(err.Error()))
+				continue
+			}
+			switch t := v.GetValue().(type) {
+			case *godis_proto.Value_StringSlice:
+				arr := t.StringSlice.GetStringArrayVal()
+				if int(req.GetIndex()) > len(arr) {
+					s.wireProtocol.Write(conn, getErrorResponse("index out of range"))
+					continue
+				}
+				s.wireProtocol.Write(conn, &godis_proto.Response{ResponseValue: &godis_proto.Response_Value{
+					Value: &godis_proto.Value{
+						Value: &godis_proto.Value_StringVal{
+							StringVal: arr[int(req.GetIndex())],
+						},
+						Ttl: v.GetTtl(),
+					},
+				}})
+			default:
+				s.wireProtocol.Write(conn, getErrorResponse(fmt.Sprintf("bad key type: %T", t)))
+				continue
+			}
+		case godis_proto.Operation_GetByKey:
+			v, err := s.storage.Get(req.GetKey())
+			if err != nil {
+				s.wireProtocol.Write(conn, getErrorResponse(err.Error()))
+				continue
+			}
+			switch t := v.GetValue().(type) {
+			case *godis_proto.Value_StringMap:
+				m := t.StringMap.GetStringMap()
+				val, ok := m[req.GetMapKey()]
+				if !ok {
+					s.wireProtocol.Write(conn, getErrorResponse(fmt.Sprintf("key `%s` doesn't exists", req.GetMapKey())))
+					continue
+				}
+				s.wireProtocol.Write(conn, &godis_proto.Response{ResponseValue: &godis_proto.Response_Value{
+					Value: &godis_proto.Value{
+						Value: &godis_proto.Value_StringVal{
+							StringVal: val,
+						},
+						Ttl: v.GetTtl(),
+					},
+				}})
+			default:
+				s.wireProtocol.Write(conn, getErrorResponse(fmt.Sprintf("bad key type: %T", t)))
+				continue
+			}
 
 		default:
 			s.wireProtocol.Write(conn, getErrorResponse("not implemented"))
