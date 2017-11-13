@@ -33,7 +33,7 @@ func (c *Client) Close() {
 	c.connectionPool.Close()
 }
 
-func (c *Client) Get(key string) (*godis_proto.Response, error) {
+func (c *Client) get(key string) (*godis_proto.Response, error) {
 	conn, err := c.connectionPool.Get()
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (c *Client) Get(key string) (*godis_proto.Response, error) {
 	return resp, nil
 }
 
-func (c *Client) Set(key string, val *godis_proto.Value) error {
+func (c *Client) set(key string, val *godis_proto.Value) error {
 	conn, err := c.connectionPool.Get()
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (c *Client) writeRequestReadResponse(conn net.Conn, req *godis_proto.Reques
 }
 
 func (c *Client) SetString(key, val string, ttl time.Duration) error {
-	return c.Set(key, &godis_proto.Value{
+	return c.set(key, &godis_proto.Value{
 		Value: &godis_proto.Value_StringVal{StringVal: val},
 		Ttl:   ttl.Nanoseconds() + time.Now().UnixNano(),
 	},
@@ -138,21 +138,21 @@ func (c *Client) SetString(key, val string, ttl time.Duration) error {
 }
 
 func (c *Client) SetSlice(key string, val []string, ttl time.Duration) error {
-	return c.Set(key, &godis_proto.Value{
+	return c.set(key, &godis_proto.Value{
 		Value: &godis_proto.Value_StringSlice{StringSlice: &godis_proto.RepeatedString{StringArrayVal: val}},
 		Ttl:   ttl.Nanoseconds() + time.Now().UnixNano(),
 	})
 }
 
 func (c *Client) SetMap(key string, val map[string]string, ttl time.Duration) error {
-	return c.Set(key, &godis_proto.Value{
+	return c.set(key, &godis_proto.Value{
 		Value: &godis_proto.Value_StringMap{StringMap: &godis_proto.MapString{StringMap: val}},
 		Ttl:   ttl.Nanoseconds() + time.Now().UnixNano(),
 	})
 }
 
 func (c *Client) GetString(key string) (string, error) {
-	v, err := c.Get(key)
+	v, err := c.get(key)
 	if err != nil {
 		return "", err
 	}
@@ -166,7 +166,7 @@ func (c *Client) GetString(key string) (string, error) {
 }
 
 func (c *Client) GetSlice(key string) ([]string, error) {
-	v, err := c.Get(key)
+	v, err := c.get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (c *Client) GetSlice(key string) ([]string, error) {
 }
 
 func (c *Client) GetMap(key string) (map[string]string, error) {
-	v, err := c.Get(key)
+	v, err := c.get(key)
 	if err != nil {
 		return nil, err
 	}
