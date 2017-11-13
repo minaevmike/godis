@@ -1,22 +1,17 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/minaevmike/godis/server"
-	"go.uber.org/zap"
+	"flag"
+	"log"
 )
 
 func main() {
-	log, err := zap.NewDevelopment()
+	addr := flag.String("endpoint", "localhost:4321", "endpoint to listen")
+	flag.Parse()
+	err := server.ListenAndServe(*addr)
 	if err != nil {
-		fmt.Printf("can't create logger: %v", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
-	s := server.NewServer(log)
-	err = s.Run("localhost:4321")
-	if err != nil {
-		log.Fatal("run server", zap.Error(err))
-	}
+
 }

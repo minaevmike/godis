@@ -11,7 +11,18 @@ import (
 	"go.uber.org/zap"
 	"regexp"
 	"fmt"
+	"os"
 )
+
+func ListenAndServe(addr string) error {
+	log, err := zap.NewDevelopment()
+	if err != nil {
+		fmt.Printf("can't create logger: %v", err)
+		os.Exit(1)
+	}
+	s := NewServer(log)
+	return s.Run(addr)
+}
 
 func NewServer(
 	logger *zap.Logger,
