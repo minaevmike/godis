@@ -1,17 +1,17 @@
 package test
 
 import (
-	"testing"
-	"time"
-	"go.uber.org/zap"
-	"github.com/minaevmike/godis/server"
-	"github.com/minaevmike/godis/client"
-	"github.com/stretchr/testify/assert"
-	"github.com/phayes/freeport"
 	"fmt"
 	"sort"
-)
+	"testing"
+	"time"
 
+	"github.com/minaevmike/godis/client"
+	"github.com/minaevmike/godis/server"
+	"github.com/phayes/freeport"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+)
 
 func startServer(addr string) *server.Server {
 	l, _ := zap.NewProduction()
@@ -112,7 +112,6 @@ func TestServer_SetGetMap(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, val2, "")
 
-
 	s.Shutdown()
 	cl.Close()
 }
@@ -167,7 +166,7 @@ func TestServer_Keys(t *testing.T) {
 	val, err = cl.Keys("h?llo")
 	assert.Nil(t, err)
 	sort.Strings(val)
-	expRes2 := []string{"hello", "hallo",}
+	expRes2 := []string{"hello", "hallo"}
 	sort.Strings(expRes2)
 	assert.Equal(t, val, expRes2)
 
@@ -196,7 +195,7 @@ func TestServer_Ttl(t *testing.T) {
 
 	err = cl.SetString("a", "aaa", time.Millisecond)
 	assert.Nil(t, err)
-	err = cl.SetString("aa", "aaaa", 2 * time.Second)
+	err = cl.SetString("aa", "aaaa", 2*time.Second)
 
 	// Ttl must expire for a
 	time.Sleep(10 * time.Millisecond)

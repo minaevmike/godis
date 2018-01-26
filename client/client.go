@@ -5,11 +5,12 @@ import (
 
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/minaevmike/godis/codec"
 	"github.com/minaevmike/godis/godis_proto"
 	"github.com/minaevmike/godis/wire"
 	"gopkg.in/fatih/pool.v2"
-	"time"
 )
 
 func Dial(addr string) (*Client, error) {
@@ -203,7 +204,7 @@ func (c *Client) GetByIndex(key string, index int) (string, error) {
 	req := &godis_proto.Request{
 		Key:       key,
 		Operation: godis_proto.Operation_GetByIndex,
-		Index: uint32(index),
+		Index:     uint32(index),
 	}
 
 	v, err := c.writeRequestReadResponse(conn, req)
@@ -229,7 +230,7 @@ func (c *Client) GetByMapKey(key string, mapKey string) (string, error) {
 	req := &godis_proto.Request{
 		Key:       key,
 		Operation: godis_proto.Operation_GetByKey,
-		MapKey: mapKey,
+		MapKey:    mapKey,
 	}
 
 	v, err := c.writeRequestReadResponse(conn, req)

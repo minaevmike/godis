@@ -4,8 +4,9 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/minaevmike/godis/godis_proto"
 	"time"
+
+	"github.com/minaevmike/godis/godis_proto"
 )
 
 var (

@@ -4,13 +4,14 @@ import (
 	"testing"
 	"time"
 
+	"math/rand"
+	"os"
+	"sort"
+	"sync/atomic"
+
 	"github.com/minaevmike/godis/client"
 	"github.com/minaevmike/godis/server"
 	"go.uber.org/zap"
-	"os"
-	"math/rand"
-	"sort"
-	"sync/atomic"
 )
 
 /*
@@ -41,7 +42,7 @@ PASS
 ok  	github.com/minaevmike/godis/bench	13.552s
 
 
- */
+*/
 
 const (
 	addr = "localhost:6543"
@@ -65,7 +66,7 @@ func Benchmark_ServerGet(b *testing.B) {
 	keysSize := len(keys)
 	read := int64(0)
 	for i := 0; i < b.N; i++ {
-		val, err := cl.GetString(keys[i % keysSize])
+		val, err := cl.GetString(keys[i%keysSize])
 		if err != nil {
 			b.Error(err)
 		}
@@ -81,7 +82,7 @@ func Benchmark_ServerGet_Parallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			atomic.AddInt64(&i, 1)
-			val, err := cl.GetString(keys[atomic.LoadInt64(&i) % keysSize])
+			val, err := cl.GetString(keys[atomic.LoadInt64(&i)%keysSize])
 			if err != nil {
 				b.Error(err)
 			}
@@ -90,7 +91,6 @@ func Benchmark_ServerGet_Parallel(b *testing.B) {
 	})
 	b.SetBytes(atomic.LoadInt64(&read))
 }
-
 
 func Benchmark_Server_100000Keys(b *testing.B) {
 	read := int64(0)
@@ -126,11 +126,11 @@ func Benchmark_ServerSet(b *testing.B) {
 	keysSize := len(keys)
 	read := int64(0)
 	for i := 0; i < b.N; i++ {
-		err := cl.SetString(randSeq(15), keys[i % keysSize], time.Hour)
+		err := cl.SetString(randSeq(15), keys[i%keysSize], time.Hour)
 		if err != nil {
 			b.Error(err)
 		}
-		read += int64(15 + len(keys[i % keysSize]))
+		read += int64(15 + len(keys[i%keysSize]))
 	}
 	b.SetBytes(read)
 }
@@ -146,7 +146,7 @@ func Benchmark_ServerSet_Parallel(b *testing.B) {
 			if err != nil {
 				b.Error(err)
 			}
-			atomic.AddInt64(&read, int64(15 + len(keys[atomic.LoadInt64(&i)%keysSize])))
+			atomic.AddInt64(&read, int64(15+len(keys[atomic.LoadInt64(&i)%keysSize])))
 		}
 	})
 
@@ -156,7 +156,7 @@ func Benchmark_ServerSet_Parallel(b *testing.B) {
 func TestMain(m *testing.M) {
 	l, _ := zap.NewProduction()
 	s = server.NewServer(l)
-	go func(){
+	go func() {
 		s.Run(addr)
 	}()
 	time.Sleep(time.Millisecond)

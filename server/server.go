@@ -4,13 +4,14 @@ import (
 	"io"
 	"net"
 
+	"fmt"
+	"regexp"
+
 	"github.com/minaevmike/godis/codec"
 	"github.com/minaevmike/godis/godis_proto"
 	"github.com/minaevmike/godis/storage"
 	"github.com/minaevmike/godis/wire"
 	"go.uber.org/zap"
-	"regexp"
-	"fmt"
 )
 
 func NewServer(

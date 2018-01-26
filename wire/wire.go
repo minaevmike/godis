@@ -8,6 +8,7 @@ import (
 
 	"github.com/minaevmike/godis/codec"
 )
+
 // wire protocol is very simple:
 // 1. client serialize request into bytes
 // 2. client writes request size in big-endian byte order to server

@@ -4,7 +4,7 @@ import "sync"
 
 type syncStringSlice struct {
 	data []string
-	mu sync.Mutex
+	mu   sync.Mutex
 }
 
 func (s *syncStringSlice) add(key string) {
