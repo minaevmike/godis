@@ -45,16 +45,16 @@ const (
 
 var Operation_name = map[int32]string{
 	0: "Remove",
-	1: "Get",
-	2: "Set",
+	1: "get",
+	2: "set",
 	3: "Keys",
 	4: "GetByIndex",
 	5: "GetByKey",
 }
 var Operation_value = map[string]int32{
 	"Remove":     0,
-	"Get":        1,
-	"Set":        2,
+	"get":        1,
+	"set":        2,
 	"Keys":       3,
 	"GetByIndex": 4,
 	"GetByKey":   5,
