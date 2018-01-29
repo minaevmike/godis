@@ -8,9 +8,12 @@ import (
 	"os"
 	"regexp"
 
+	"time"
+
 	"github.com/minaevmike/godis/codec"
 	"github.com/minaevmike/godis/godis_proto"
 	"github.com/minaevmike/godis/storage"
+	"github.com/minaevmike/godis/wal"
 	"github.com/minaevmike/godis/wire"
 	"go.uber.org/zap"
 )
@@ -28,11 +31,36 @@ func ListenAndServe(addr string) error {
 func NewServer(
 	logger *zap.Logger,
 ) *Server {
+	st := storage.NewShardMapStorage(32)
+	cd := codec.NewProtoCodec()
 	return &Server{
 		log:          logger,
-		wireProtocol: wire.NewSimpleWireProtocol(codec.NewProtoCodec()),
+		wireProtocol: wire.NewSimpleWireProtocol(cd),
 		stopChan:     make(chan struct{}),
-		storage:      storage.NewShardMapStorage(32),
+		storage:      st,
+		wal: wal.NewIntervalWAL("./godis.wal", time.Second, logger, func(record *wal.Record) {
+			v := &godis_proto.Value{}
+			err := cd.Unmarshal(record.Value, v)
+			if err != nil {
+				logger.Error("can't unmarshal data from wal", zap.Error(err))
+				return
+			}
+			switch record.Cmd {
+			case wal.Write:
+				err = st.Set(string(record.Key), v)
+				if err != nil {
+					logger.Error("can't set value from wal", zap.Error(err))
+					return
+				}
+			case wal.Delete:
+				err = st.Delete(string(record.Key))
+				if err != nil {
+					logger.Error("can't delete value from wal", zap.Error(err))
+					return
+				}
+			}
+		}),
+		cd: cd,
 	}
 }
 
@@ -41,6 +69,8 @@ type Server struct {
 	wireProtocol wire.Protocol
 	stopChan     chan struct{}
 	storage      storage.Storage
+	wal          wal.WAL
+	cd           codec.Codec
 }
 
 func errorPermament(err error) bool {
@@ -80,6 +110,18 @@ func (s *Server) Run(addr string) error {
 	}
 }
 
+func (s *Server) marshal(v *godis_proto.Value) []byte {
+	if v == nil {
+		return nil
+	}
+	data, err := s.cd.Marshal(v)
+	if err != nil {
+		s.log.Error("can't marshal data", zap.Error(err))
+		return []byte(err.Error())
+	}
+	return data
+}
+
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	for {
@@ -109,6 +151,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 				s.wireProtocol.Write(conn, getErrorResponse(err.Error()))
 				continue
 			}
+			err = s.wal.Write(wal.Write, []byte(req.GetKey()), s.marshal(req.GetValue()))
+			if err != nil {
+				s.log.Error("can't write to wal", zap.Error(err))
+			}
 			s.wireProtocol.Write(conn, &godis_proto.Response{})
 
 		case godis_proto.Operation_Remove:
@@ -116,6 +162,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 			if err != nil {
 				s.wireProtocol.Write(conn, getErrorResponse(err.Error()))
 				continue
+			}
+			err = s.wal.Write(wal.Delete, []byte(req.GetKey()), s.marshal(req.GetValue()))
+			if err != nil {
+				s.log.Error("can't write to wal", zap.Error(err))
 			}
 			s.wireProtocol.Write(conn, &godis_proto.Response{})
 

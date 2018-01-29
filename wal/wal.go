@@ -7,13 +7,13 @@ const (
 	Delete
 )
 
-type Wal interface {
+type WAL interface {
 	Write(cmd Command, key []byte, data []byte) error
 }
 
-type NoopWal struct {
+type NoopWAL struct {
 }
 
-func (NoopWal) Write(cmd Command, key []byte, data []byte) error {
+func (NoopWAL) Write(cmd Command, key []byte, data []byte) error {
 	return nil
 }

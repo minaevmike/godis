@@ -7,58 +7,55 @@ import (
 	"sync"
 	"time"
 
+	"bytes"
+
 	"go.uber.org/zap"
 )
 
-type walRecord struct {
-	cmd   Command
-	key   []byte
-	value []byte
+type Record struct {
+	Cmd   Command
+	Key   []byte
+	Value []byte
 }
 
 // this is simple binary serialization format
 // KLKLKLKLVLVLVLVLCCCCK....KV....V
-// |..key len 8 byte.||..value len 8 byte..||..command 1 byte ...||..key..||..value..|
+// |..Key len 8 byte.||..Value len 8 byte..||..command 1 byte ...||..Key..||..Value..|
 //
-func (r *walRecord) WriteTo(w io.Writer) (int64, error) {
-	total := int64(0)
-	// key len
-	err := binary.Write(w, binary.BigEndian, int64(len(r.key)))
+func (r *Record) WriteTo(w io.Writer) (int64, error) {
+	b := &bytes.Buffer{}
+	// Key len
+	err := binary.Write(b, binary.BigEndian, int64(len(r.Key)))
 	if err != nil {
-		return total, err
+		return int64(b.Len()), err
 	}
-	total += 8
-	// value len
-	err = binary.Write(w, binary.BigEndian, int64(len(r.value)))
+	// Value len
+	err = binary.Write(b, binary.BigEndian, int64(len(r.Value)))
 	if err != nil {
-		return total, err
+		return int64(b.Len()), err
 	}
-	total += 8
 
-	//cmd
-	err = binary.Write(w, binary.BigEndian, r.cmd)
+	//Cmd
+	err = binary.Write(b, binary.BigEndian, r.Cmd)
 	if err != nil {
-		return total, err
+		return int64(b.Len()), err
 	}
-	total += 1
 
-	// key
-	n, err := w.Write(r.key)
+	// Key
+	_, err = b.Write(r.Key)
 	if err != nil {
-		return total, err
+		return int64(b.Len()), err
 	}
-	total += int64(n)
 
-	// value
-	n, err = w.Write(r.value)
+	// Value
+	_, err = b.Write(r.Value)
 	if err != nil {
-		return total, err
+		return int64(b.Len()), err
 	}
-	total += int64(n)
-	return total, nil
+	return io.Copy(w, b)
 }
 
-func (r *walRecord) ReadFrom(rr io.Reader) (int64, error) {
+func (r *Record) ReadFrom(rr io.Reader) (int64, error) {
 	total := int64(0)
 
 	keyLen := int64(0)
@@ -79,24 +76,24 @@ func (r *walRecord) ReadFrom(rr io.Reader) (int64, error) {
 
 	total += 8
 
-	err = binary.Read(rr, binary.BigEndian, &r.cmd)
+	err = binary.Read(rr, binary.BigEndian, &r.Cmd)
 	if err != nil {
 		return total, err
 	}
 
 	total += 1
 
-	r.key = make([]byte, keyLen)
+	r.Key = make([]byte, keyLen)
 
-	n, err := io.ReadFull(rr, r.key)
+	n, err := io.ReadFull(rr, r.Key)
 	if err != nil {
 		return total, err
 	}
 
 	total += int64(n)
 
-	r.value = make([]byte, valueLen)
-	n, err = io.ReadFull(rr, r.value)
+	r.Value = make([]byte, valueLen)
+	n, err = io.ReadFull(rr, r.Value)
 	if err != nil {
 		return total, err
 	}
@@ -107,24 +104,24 @@ func (r *walRecord) ReadFrom(rr io.Reader) (int64, error) {
 
 type syncedWALRecords struct {
 	mu      sync.Mutex
-	records []*walRecord
+	records []*Record
 }
 
-func (wr *syncedWALRecords) Add(record *walRecord) {
+func (wr *syncedWALRecords) Add(record *Record) {
 	wr.mu.Lock()
 	wr.records = append(wr.records, record)
 	wr.mu.Unlock()
 }
 
-func (wr *syncedWALRecords) Swap() []*walRecord {
+func (wr *syncedWALRecords) Swap() []*Record {
 	wr.mu.Lock()
 	old := wr.records
-	wr.records = make([]*walRecord, 0)
+	wr.records = make([]*Record, 0)
 	wr.mu.Unlock()
 	return old
 }
 
-func NewIntervalWAL(file string, timeout time.Duration, logger *zap.Logger) Wal {
+func NewIntervalWAL(file string, timeout time.Duration, logger *zap.Logger, cb func(record *Record)) WAL {
 	var walFile *os.File
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		walFile, err = os.Create(file)
@@ -135,7 +132,7 @@ func NewIntervalWAL(file string, timeout time.Duration, logger *zap.Logger) Wal 
 			return nil
 		}
 		for {
-			c := &walRecord{}
+			c := &Record{}
 			_, err := c.ReadFrom(walFile)
 			if err != nil {
 				if err == io.EOF {
@@ -144,7 +141,10 @@ func NewIntervalWAL(file string, timeout time.Duration, logger *zap.Logger) Wal 
 				logger.Error("can't read data", zap.Error(err))
 				return nil
 			}
-			logger.Debug("read wal record", zap.String("key", string(c.key)))
+			if cb != nil {
+				cb(c)
+			}
+			logger.Debug("read wal record", zap.String("Key", string(c.Key)))
 		}
 	}
 
@@ -173,10 +173,10 @@ type intervalWAL struct {
 }
 
 func (iw *intervalWAL) Write(cmd Command, key []byte, data []byte) error {
-	iw.syncedWALRecords.Add(&walRecord{
-		cmd:   cmd,
-		key:   key,
-		value: data,
+	iw.syncedWALRecords.Add(&Record{
+		Cmd:   cmd,
+		Key:   key,
+		Value: data,
 	})
 	return nil
 }
